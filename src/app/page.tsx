@@ -71,69 +71,51 @@ function DatabaseConnectivitySection() {
     setInsertedData(null);
     setErrorDetails(null);
 
-    // 2. Prepare dummy record for student_attendence
-    const testRoll = 'TEST-' + Math.floor(100 + Math.random() * 900);
-    const dummyRecord = {
-      student_id: `test-student-${Date.now()}`,
-      student_name: 'Alex Rivera (Test Dummy)',
-      roll_no: testRoll,
-      status: 'present',
-      date: new Date().toISOString().split('T')[0],
-      notes: `Automated probe from CampusHub at ${new Date().toLocaleTimeString()}`,
+    // 2. Prepare dummy record for the verified schools table
+    const uniqueSlug = `campus-${Date.now().toString().slice(-6)}`;
+    const dummySchool = {
+      name: `Apex Cyber Academy ${uniqueSlug}`,
+      slug: uniqueSlug,
+      contact_email: `admin@${uniqueSlug}.edu`,
+      accent_color: '#20B2AA',
+      is_active: true,
     };
 
     try {
-      // 3. Attempt insert into student_attendence table
+      // 3. Attempt insert into schools table
       const { data, error, status: httpStatus } = await supabase
-        .from('student_attendence')
-        .insert([dummyRecord])
+        .from('schools')
+        .insert([dummySchool])
         .select();
 
       if (error) {
-        // If table student_attendence returns 42P01 (relation does not exist), try student_attendance as smart fallback
-        if (error.code === '42P01') {
-          const fallback = await supabase
-            .from('student_attendance')
-            .insert([dummyRecord])
-            .select();
-
-          if (fallback.error) {
-            throw error; // throw original student_attendence error
-          } else {
-            setStatus('success');
-            setMessage(
-              `Database Connected! Dummy record successfully inserted into "student_attendance" (fallback from student_attendence). HTTP Status: ${fallback.status || 201}`
-            );
-            setInsertedData(fallback.data?.[0] || dummyRecord);
-            try {
-              confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-            } catch {}
-            return;
-          }
-        }
         throw error;
       }
 
       // Success
       setStatus('success');
       setMessage(
-        `Database Connected! Dummy record successfully inserted into "student_attendence" table. HTTP Status: ${httpStatus || 201}`
+        `Database Connected! Dummy school record successfully inserted into "schools" table. HTTP Status: ${httpStatus || 201}`
       );
-      setInsertedData(data?.[0] || dummyRecord);
+      setInsertedData(data?.[0] || dummySchool);
       try {
         confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
       } catch {}
     } catch (err: any) {
       setStatus('error');
-      setMessage(
-        err?.message ||
-        err?.error_description ||
-        'Failed to insert into student_attendence. Please check table existence and Row-Level Security (RLS) policies.'
-      );
+
+      const isRlsError = err?.code === '42501';
+      const friendlyMsg = isRlsError
+        ? 'Connected to Supabase successfully! Table "schools" is reached, but the operation was stopped by Row-Level Security (RLS).'
+        : (err?.message || err?.error_description || 'Failed to insert into schools table.');
+
+      setMessage(friendlyMsg);
       setErrorDetails({
         code: err?.code || 'POSTGREST_ERROR',
         details: err?.details || null,
-        hint: err?.hint || (err?.code === '42P01' ? 'Table "student_attendence" does not exist yet on your Supabase database.' : null),
+        hint: isRlsError
+          ? 'RLS is enabled on "schools". In your Supabase Dashboard, go to Table Editor > schools > RLS Policies and add an INSERT policy for the anon role (e.g. CREATE POLICY "Allow anon insert" ON schools FOR INSERT WITH CHECK (true);) to permit client inserts.'
+          : (err?.hint || null),
       });
     } finally {
       setLoading(false);
@@ -159,7 +141,7 @@ function DatabaseConnectivitySection() {
               Live Supabase Connectivity &amp; Insertion Test
             </h2>
             <p className="text-xs sm:text-sm text-slate-700 mt-1 max-w-2xl leading-relaxed">
-              Verify real-time communication between your Next.js client and PostgreSQL database by inserting a test payload into the <code className="bg-teal-50 px-2 py-0.5 rounded text-teal-900 font-mono font-bold">student_attendence</code> table.
+              Verify real-time communication between your Next.js client and PostgreSQL database by inserting a test payload into the <code className="bg-teal-50 px-2 py-0.5 rounded text-teal-900 font-mono font-bold">schools</code> table.
             </p>
           </div>
 
@@ -191,7 +173,7 @@ function DatabaseConnectivitySection() {
             <RefreshCw className="w-5 h-5 text-teal-600 animate-spin shrink-0" />
             <div>
               <p className="font-bold">Dispatching test payload to Supabase endpoint...</p>
-              <p className="text-[11px] text-teal-700 mt-0.5">Target: table &quot;student_attendence&quot; • Awaiting response</p>
+              <p className="text-[11px] text-teal-700 mt-0.5">Target: table &quot;schools&quot; • Awaiting response</p>
             </div>
           </div>
         )}
@@ -213,7 +195,7 @@ function DatabaseConnectivitySection() {
             {insertedData && (
               <div className="p-3.5 bg-white/80 rounded-xl border border-emerald-200 text-xs font-mono text-slate-800 space-y-1">
                 <span className="text-emerald-800 font-bold block text-[11px] uppercase tracking-wider">
-                  Verified Inserted Payload:
+                  Verified Inserted School Record:
                 </span>
                 <pre className="text-[11px] overflow-x-auto p-2 bg-emerald-100/40 rounded-lg text-emerald-950 font-mono">
                   {JSON.stringify(insertedData, null, 2)}
@@ -229,7 +211,7 @@ function DatabaseConnectivitySection() {
               <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h4 className="text-sm font-bold text-rose-900">
-                  Database Connectivity Error
+                  Database Connectivity Notice
                 </h4>
                 <p className="text-xs sm:text-sm text-rose-800 mt-0.5 font-medium leading-relaxed">
                   {message}
@@ -244,7 +226,7 @@ function DatabaseConnectivitySection() {
                   <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold font-mono">Code: {errorDetails.code}</span>
                 </div>
                 {errorDetails.hint && (
-                  <p className="text-[11px] text-amber-900 mt-1 font-medium bg-amber-50 p-2 rounded border border-amber-200">
+                  <p className="text-[11px] text-amber-900 mt-1 font-medium bg-amber-50 p-2.5 rounded border border-amber-200 leading-relaxed">
                     💡 <strong>Troubleshooting Hint:</strong> {errorDetails.hint}
                   </p>
                 )}
@@ -258,11 +240,11 @@ function DatabaseConnectivitySection() {
           <div className="flex items-center gap-3">
             <span>Client: <code className="text-teal-950 font-bold">@supabase/supabase-js v2.118</code></span>
             <span>•</span>
-            <span>Target Table: <code className="text-teal-950 font-bold">student_attendence</code></span>
+            <span>Target Table: <code className="text-teal-950 font-bold">schools</code></span>
           </div>
           <div className="flex items-center gap-1.5 text-teal-800 font-semibold">
             <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
-            <span>Row-Level Security (RLS) Ready</span>
+            <span>Multi-Tenant PostgreSQL Architecture</span>
           </div>
         </div>
       </div>
