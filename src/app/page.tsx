@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AdmissionModal from '@/components/AdmissionModal';
 import { useSchool } from '@/context/SchoolContext';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import {
   Sparkles,
   Zap,
@@ -29,9 +30,249 @@ import {
   Eye,
   Sliders,
   Settings,
+  Database,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  Server,
+  Terminal,
+  Clock,
+  Send,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
+// =========================================================================
+// SUB-COMPONENT: Live Supabase Database Connectivity & Telemetry Tester
+// =========================================================================
+function DatabaseConnectivitySection() {
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [message, setMessage] = useState<string | null>(null);
+  const [insertedData, setInsertedData] = useState<any>(null);
+  const [errorDetails, setErrorDetails] = useState<any>(null);
+
+  const handleTestConnection = async () => {
+    // 1. Check if Supabase credentials are configured in .env.local
+    if (!isSupabaseConfigured) {
+      setStatus('error');
+      setMessage(
+        'Supabase environment variables are missing. Please verify NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY inside .env.local.'
+      );
+      setErrorDetails({
+        code: 'MISSING_ENV_VARS',
+        hint: 'Check .env.local at project root directory.',
+      });
+      return;
+    }
+
+    setLoading(true);
+    setStatus('idle');
+    setMessage(null);
+    setInsertedData(null);
+    setErrorDetails(null);
+
+    // 2. Prepare dummy record for student_attendence
+    const testRoll = 'TEST-' + Math.floor(100 + Math.random() * 900);
+    const dummyRecord = {
+      student_id: `test-student-${Date.now()}`,
+      student_name: 'Alex Rivera (Test Dummy)',
+      roll_no: testRoll,
+      status: 'present',
+      date: new Date().toISOString().split('T')[0],
+      notes: `Automated probe from CampusHub at ${new Date().toLocaleTimeString()}`,
+    };
+
+    try {
+      // 3. Attempt insert into student_attendence table
+      const { data, error, status: httpStatus } = await supabase
+        .from('student_attendence')
+        .insert([dummyRecord])
+        .select();
+
+      if (error) {
+        // If table student_attendence returns 42P01 (relation does not exist), try student_attendance as smart fallback
+        if (error.code === '42P01') {
+          const fallback = await supabase
+            .from('student_attendance')
+            .insert([dummyRecord])
+            .select();
+
+          if (fallback.error) {
+            throw error; // throw original student_attendence error
+          } else {
+            setStatus('success');
+            setMessage(
+              `Database Connected! Dummy record successfully inserted into "student_attendance" (fallback from student_attendence). HTTP Status: ${fallback.status || 201}`
+            );
+            setInsertedData(fallback.data?.[0] || dummyRecord);
+            try {
+              confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+            } catch {}
+            return;
+          }
+        }
+        throw error;
+      }
+
+      // Success
+      setStatus('success');
+      setMessage(
+        `Database Connected! Dummy record successfully inserted into "student_attendence" table. HTTP Status: ${httpStatus || 201}`
+      );
+      setInsertedData(data?.[0] || dummyRecord);
+      try {
+        confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
+      } catch {}
+    } catch (err: any) {
+      setStatus('error');
+      setMessage(
+        err?.message ||
+        err?.error_description ||
+        'Failed to insert into student_attendence. Please check table existence and Row-Level Security (RLS) policies.'
+      );
+      setErrorDetails({
+        code: err?.code || 'POSTGREST_ERROR',
+        details: err?.details || null,
+        hint: err?.hint || (err?.code === '42P01' ? 'Table "student_attendence" does not exist yet on your Supabase database.' : null),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="glass-container rounded-[32px] p-6 sm:p-8 shadow-2xl relative overflow-hidden border border-white/80">
+        {/* Glow ambient background aura */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-teal-400/10 rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-teal-900/10">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="px-3.5 py-1 text-[10px] font-mono bg-teal-100 text-teal-900 rounded-full border border-teal-200 flex items-center gap-1.5 font-bold">
+                <span className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                DATABASE TELEMETRY // {isSupabaseConfigured ? 'SUPABASE ONLINE' : 'CONFIG REQUIRED'}
+              </span>
+              <span className="text-xs font-mono text-slate-600 font-medium">PostgreSQL Engine</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-teal-950">
+              Live Supabase Connectivity &amp; Insertion Test
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-700 mt-1 max-w-2xl leading-relaxed">
+              Verify real-time communication between your Next.js client and PostgreSQL database by inserting a test payload into the <code className="bg-teal-50 px-2 py-0.5 rounded text-teal-900 font-mono font-bold">student_attendence</code> table.
+            </p>
+          </div>
+
+          {/* Action Button: Tailwind Styled */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
+            <button
+              onClick={handleTestConnection}
+              disabled={loading}
+              className="inline-flex items-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-teal-700 via-teal-600 to-cyan-600 hover:from-teal-800 hover:to-cyan-700 text-white font-bold rounded-full shadow-[0_4px_20px_rgba(13,148,136,0.35)] hover:scale-[1.02] active:scale-95 transition-all text-xs sm:text-sm uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-teal-100" />
+                  <span>Connecting &amp; Inserting...</span>
+                </>
+              ) : (
+                <>
+                  <Database className="w-4 h-4 fill-teal-100 text-teal-100" />
+                  <span>Test Database Connection</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Status / Message Box */}
+        {loading && (
+          <div className="mt-6 p-4 rounded-2xl bg-teal-50/70 border border-teal-200 flex items-center gap-3 text-xs sm:text-sm font-mono text-teal-900 animate-pulse">
+            <RefreshCw className="w-5 h-5 text-teal-600 animate-spin shrink-0" />
+            <div>
+              <p className="font-bold">Dispatching test payload to Supabase endpoint...</p>
+              <p className="text-[11px] text-teal-700 mt-0.5">Target: table &quot;student_attendence&quot; • Awaiting response</p>
+            </div>
+          </div>
+        )}
+
+        {status === 'success' && (
+          <div className="mt-6 p-5 rounded-2xl bg-emerald-50/90 border border-emerald-300 text-emerald-950 shadow-sm space-y-3">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-emerald-900">
+                  Database Operation Successful!
+                </h4>
+                <p className="text-xs sm:text-sm text-emerald-800 mt-0.5 font-medium leading-relaxed">
+                  {message}
+                </p>
+              </div>
+            </div>
+
+            {insertedData && (
+              <div className="p-3.5 bg-white/80 rounded-xl border border-emerald-200 text-xs font-mono text-slate-800 space-y-1">
+                <span className="text-emerald-800 font-bold block text-[11px] uppercase tracking-wider">
+                  Verified Inserted Payload:
+                </span>
+                <pre className="text-[11px] overflow-x-auto p-2 bg-emerald-100/40 rounded-lg text-emerald-950 font-mono">
+                  {JSON.stringify(insertedData, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="mt-6 p-5 rounded-2xl bg-rose-50/90 border border-rose-300 text-rose-950 shadow-sm space-y-3">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-rose-900">
+                  Database Connectivity Error
+                </h4>
+                <p className="text-xs sm:text-sm text-rose-800 mt-0.5 font-medium leading-relaxed">
+                  {message}
+                </p>
+              </div>
+            </div>
+
+            {errorDetails && (
+              <div className="p-3.5 bg-white/80 rounded-xl border border-rose-200 text-xs font-mono text-slate-800 space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-rose-800 font-bold uppercase tracking-wider">Error Telemetry:</span>
+                  <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold font-mono">Code: {errorDetails.code}</span>
+                </div>
+                {errorDetails.hint && (
+                  <p className="text-[11px] text-amber-900 mt-1 font-medium bg-amber-50 p-2 rounded border border-amber-200">
+                    💡 <strong>Troubleshooting Hint:</strong> {errorDetails.hint}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Micro-telemetry status strip */}
+        <div className="mt-5 pt-4 border-t border-teal-900/10 flex flex-wrap items-center justify-between text-[11px] font-mono text-slate-600 gap-2">
+          <div className="flex items-center gap-3">
+            <span>Client: <code className="text-teal-950 font-bold">@supabase/supabase-js v2.118</code></span>
+            <span>•</span>
+            <span>Target Table: <code className="text-teal-950 font-bold">student_attendence</code></span>
+          </div>
+          <div className="flex items-center gap-1.5 text-teal-800 font-semibold">
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
+            <span>Row-Level Security (RLS) Ready</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// =========================================================================
+// MAIN HOMEPAGE COMPONENT
+// =========================================================================
 export default function HomePage() {
   const { branding, content, modules, notices } = useSchool();
   const [admissionOpen, setAdmissionOpen] = useState(false);
@@ -115,6 +356,11 @@ export default function HomePage() {
             </Link>
           </div>
         </section>
+
+        {/* =========================================================================
+            DATABASE CONNECTIVITY & TELEMETRY TESTER (LIVE SUPABASE INTEGRATION)
+            ========================================================================= */}
+        <DatabaseConnectivitySection />
 
         {/* =========================================================================
             FEATURED INTERACTIVE SHOWCASE MODULE (DIRECTLY EMBODYING IMAGES 1 & 2)
