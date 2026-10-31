@@ -6,7 +6,6 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AdmissionModal from '@/components/AdmissionModal';
 import { useSchool } from '@/context/SchoolContext';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import {
   Sparkles,
   Zap,
@@ -30,237 +29,23 @@ import {
   Eye,
   Sliders,
   Settings,
-  Database,
-  RefreshCw,
+  MessageSquare,
+  Building2,
   CheckCircle2,
-  AlertCircle,
-  Server,
-  Terminal,
-  Clock,
-  Send,
+  Compass,
+  School,
+  ArrowUpRight,
+  BookOpen,
+  Fingerprint,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
-// =========================================================================
-// SUB-COMPONENT: Live Supabase Database Connectivity & Telemetry Tester
-// =========================================================================
-function DatabaseConnectivitySection() {
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [message, setMessage] = useState<string | null>(null);
-  const [insertedData, setInsertedData] = useState<any>(null);
-  const [errorDetails, setErrorDetails] = useState<any>(null);
-
-  const handleTestConnection = async () => {
-    // 1. Check if Supabase credentials are configured in .env.local
-    if (!isSupabaseConfigured) {
-      setStatus('error');
-      setMessage(
-        'Supabase environment variables are missing. Please verify NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY inside .env.local.'
-      );
-      setErrorDetails({
-        code: 'MISSING_ENV_VARS',
-        hint: 'Check .env.local at project root directory.',
-      });
-      return;
-    }
-
-    setLoading(true);
-    setStatus('idle');
-    setMessage(null);
-    setInsertedData(null);
-    setErrorDetails(null);
-
-    // 2. Prepare dummy record for the verified schools table
-    const uniqueSlug = `campus-${Date.now().toString().slice(-6)}`;
-    const dummySchool = {
-      name: `Apex Cyber Academy ${uniqueSlug}`,
-      slug: uniqueSlug,
-      contact_email: `admin@${uniqueSlug}.edu`,
-      accent_color: '#20B2AA',
-      is_active: true,
-    };
-
-    try {
-      // 3. Attempt insert into schools table
-      const { data, error, status: httpStatus } = await supabase
-        .from('schools')
-        .insert([dummySchool])
-        .select();
-
-      if (error) {
-        throw error;
-      }
-
-      // Success
-      setStatus('success');
-      setMessage(
-        `Database Connected! Dummy school record successfully inserted into "schools" table. HTTP Status: ${httpStatus || 201}`
-      );
-      setInsertedData(data?.[0] || dummySchool);
-      try {
-        confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
-      } catch {}
-    } catch (err: any) {
-      setStatus('error');
-
-      const isRlsError = err?.code === '42501';
-      const friendlyMsg = isRlsError
-        ? 'Connected to Supabase successfully! Table "schools" is reached, but the operation was stopped by Row-Level Security (RLS).'
-        : (err?.message || err?.error_description || 'Failed to insert into schools table.');
-
-      setMessage(friendlyMsg);
-      setErrorDetails({
-        code: err?.code || 'POSTGREST_ERROR',
-        details: err?.details || null,
-        hint: isRlsError
-          ? 'RLS is enabled on "schools". In your Supabase Dashboard, go to Table Editor > schools > RLS Policies and add an INSERT policy for the anon role (e.g. CREATE POLICY "Allow anon insert" ON schools FOR INSERT WITH CHECK (true);) to permit client inserts.'
-          : (err?.hint || null),
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="glass-container rounded-[32px] p-6 sm:p-8 shadow-2xl relative overflow-hidden border border-white/80">
-        {/* Glow ambient background aura */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-teal-400/10 rounded-full blur-[100px] pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-teal-900/10">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-3.5 py-1 text-[10px] font-mono bg-teal-100 text-teal-900 rounded-full border border-teal-200 flex items-center gap-1.5 font-bold">
-                <span className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-                DATABASE TELEMETRY // {isSupabaseConfigured ? 'SUPABASE ONLINE' : 'CONFIG REQUIRED'}
-              </span>
-              <span className="text-xs font-mono text-slate-600 font-medium">PostgreSQL Engine</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-teal-950">
-              Live Supabase Connectivity &amp; Insertion Test
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-700 mt-1 max-w-2xl leading-relaxed">
-              Verify real-time communication between your Next.js client and PostgreSQL database by inserting a test payload into the <code className="bg-teal-50 px-2 py-0.5 rounded text-teal-900 font-mono font-bold">schools</code> table.
-            </p>
-          </div>
-
-          {/* Action Button: Tailwind Styled */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
-            <button
-              onClick={handleTestConnection}
-              disabled={loading}
-              className="inline-flex items-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-teal-700 via-teal-600 to-cyan-600 hover:from-teal-800 hover:to-cyan-700 text-white font-bold rounded-full shadow-[0_4px_20px_rgba(13,148,136,0.35)] hover:scale-[1.02] active:scale-95 transition-all text-xs sm:text-sm uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-teal-100" />
-                  <span>Connecting &amp; Inserting...</span>
-                </>
-              ) : (
-                <>
-                  <Database className="w-4 h-4 fill-teal-100 text-teal-100" />
-                  <span>Test Database Connection</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Dynamic Status / Message Box */}
-        {loading && (
-          <div className="mt-6 p-4 rounded-2xl bg-teal-50/70 border border-teal-200 flex items-center gap-3 text-xs sm:text-sm font-mono text-teal-900 animate-pulse">
-            <RefreshCw className="w-5 h-5 text-teal-600 animate-spin shrink-0" />
-            <div>
-              <p className="font-bold">Dispatching test payload to Supabase endpoint...</p>
-              <p className="text-[11px] text-teal-700 mt-0.5">Target: table &quot;schools&quot; • Awaiting response</p>
-            </div>
-          </div>
-        )}
-
-        {status === 'success' && (
-          <div className="mt-6 p-5 rounded-2xl bg-emerald-50/90 border border-emerald-300 text-emerald-950 shadow-sm space-y-3">
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-sm font-bold text-emerald-900">
-                  Database Operation Successful!
-                </h4>
-                <p className="text-xs sm:text-sm text-emerald-800 mt-0.5 font-medium leading-relaxed">
-                  {message}
-                </p>
-              </div>
-            </div>
-
-            {insertedData && (
-              <div className="p-3.5 bg-white/80 rounded-xl border border-emerald-200 text-xs font-mono text-slate-800 space-y-1">
-                <span className="text-emerald-800 font-bold block text-[11px] uppercase tracking-wider">
-                  Verified Inserted School Record:
-                </span>
-                <pre className="text-[11px] overflow-x-auto p-2 bg-emerald-100/40 rounded-lg text-emerald-950 font-mono">
-                  {JSON.stringify(insertedData, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        )}
-
-        {status === 'error' && (
-          <div className="mt-6 p-5 rounded-2xl bg-rose-50/90 border border-rose-300 text-rose-950 shadow-sm space-y-3">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-sm font-bold text-rose-900">
-                  Database Connectivity Notice
-                </h4>
-                <p className="text-xs sm:text-sm text-rose-800 mt-0.5 font-medium leading-relaxed">
-                  {message}
-                </p>
-              </div>
-            </div>
-
-            {errorDetails && (
-              <div className="p-3.5 bg-white/80 rounded-xl border border-rose-200 text-xs font-mono text-slate-800 space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-rose-800 font-bold uppercase tracking-wider">Error Telemetry:</span>
-                  <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold font-mono">Code: {errorDetails.code}</span>
-                </div>
-                {errorDetails.hint && (
-                  <p className="text-[11px] text-amber-900 mt-1 font-medium bg-amber-50 p-2.5 rounded border border-amber-200 leading-relaxed">
-                    💡 <strong>Troubleshooting Hint:</strong> {errorDetails.hint}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Micro-telemetry status strip */}
-        <div className="mt-5 pt-4 border-t border-teal-900/10 flex flex-wrap items-center justify-between text-[11px] font-mono text-slate-600 gap-2">
-          <div className="flex items-center gap-3">
-            <span>Client: <code className="text-teal-950 font-bold">@supabase/supabase-js v2.118</code></span>
-            <span>•</span>
-            <span>Target Table: <code className="text-teal-950 font-bold">schools</code></span>
-          </div>
-          <div className="flex items-center gap-1.5 text-teal-800 font-semibold">
-            <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
-            <span>Multi-Tenant PostgreSQL Architecture</span>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// =========================================================================
-// MAIN HOMEPAGE COMPONENT
-// =========================================================================
 export default function HomePage() {
   const { branding, content, modules, notices } = useSchool();
   const [admissionOpen, setAdmissionOpen] = useState(false);
   const [selectedNoticeCategory, setSelectedNoticeCategory] = useState<'all' | 'urgent' | 'exam' | 'general'>('all');
 
-  // Interactive Reference Showcase Card State (Directly reflecting Image 1 & 2)
+  // Interactive Reference Showcase Card State (Directly reflecting Images 1 & 2)
   const [activeTabMenu, setActiveTabMenu] = useState<'Home' | 'Services' | 'About us' | 'Contact us'>('Home');
   const [loginEmail, setLoginEmail] = useState('faculty.vance@campushub.school');
   const [loginPass, setLoginPass] = useState('••••••••••••');
@@ -293,68 +78,88 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      {/* Top Navigation */}
       <Navbar onOpenAdmission={() => setAdmissionOpen(true)} />
 
-      <main className="flex-1 space-y-20 pt-6">
-        {/* HERO SECTION WITH DYNAMIC HEADLINE & SUBHEADLINE */}
+      <main className="flex-1 space-y-24 pt-6 pb-20">
+        {/* =========================================================================
+            1. HERO SECTION: WELCOMING, MODERN & MULTI-TENANT SAAS FOCUSED
+            ========================================================================= */}
         <section className="relative px-4 sm:px-6 lg:px-8 text-center max-w-7xl mx-auto pt-8">
+          {/* Subtle Accent Pill */}
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full glass-card-crystal text-teal-900 text-xs font-mono mb-6 shadow-glow-teal border border-teal-600/30">
             <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping" />
-            <span className="font-bold">{branding.schoolName.toUpperCase()} • {branding.campusCode}</span>
+            <span className="font-bold uppercase tracking-wider">
+              {branding.schoolName} • Multi-Tenant School OS
+            </span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-teal-950 mb-6 leading-tight">
-            {content.heroHeadline.includes('100-Years') ? (
-              <>
-                The 100-Years-Ahead <br className="hidden sm:inline" />
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-800 via-teal-600 to-cyan-600">
-                  Cyber-School Holographic OS
-                </span>
-              </>
-            ) : (
-              content.heroHeadline
-            )}
+          {/* Main Hero Headline */}
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-teal-950 mb-6 leading-[1.12]">
+            Modern School Management,{' '}
+            <br className="hidden sm:inline" />
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-800 via-teal-600 to-cyan-600">
+              Reimagined for Autonomous Campuses
+            </span>
           </h1>
 
-          <p className="max-w-3xl mx-auto text-sm sm:text-lg text-slate-700 mb-8 font-normal leading-relaxed">
-            {content.heroSubheadline}
+          {/* Subheadline */}
+          <p className="max-w-3xl mx-auto text-sm sm:text-lg text-slate-700 mb-10 font-normal leading-relaxed">
+            CampusHub is an all-in-one institutional operating system for forward-thinking schools. Manage 1-tap student attendance, pre-publication gradebooks, campus social feeds, and AI study co-pilots in a single crystalline interface.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          {/* Dual Action Buttons: Login & School Registration */}
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <Link
-              href="/portal/dashboard"
-              className="px-6 py-3.5 bg-gradient-to-r from-teal-700 via-teal-600 to-cyan-600 hover:from-teal-800 hover:to-cyan-700 text-white font-bold rounded-full shadow-[0_4px_20px_rgba(13,148,136,0.35)] text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 transition hover:scale-[1.02] active:scale-95"
+              href="/login"
+              className="px-8 py-4 bg-gradient-to-r from-teal-700 via-teal-600 to-cyan-600 hover:from-teal-800 hover:to-cyan-700 text-white font-bold rounded-full shadow-[0_4px_22px_rgba(13,148,136,0.35)] text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 transition hover:scale-[1.02] active:scale-95"
             >
-              Enter Student / Faculty Portal
+              <ShieldCheck className="w-4 h-4 text-teal-100" />
+              Sign In to Portal
               <ArrowRight className="w-4 h-4" />
             </Link>
 
             <Link
               href="/portal/settings"
-              className="px-5 py-3.5 glass-card-crystal text-amber-900 hover:text-amber-950 rounded-full text-xs sm:text-sm font-mono font-bold flex items-center gap-2 transition border border-amber-500/30 hover:border-amber-500/60"
+              className="px-7 py-4 glass-card-crystal text-teal-950 hover:text-teal-900 rounded-full text-xs sm:text-sm font-mono font-bold flex items-center gap-2 transition border border-teal-200/80 hover:border-teal-400/80 shadow-sm hover:scale-[1.02] active:scale-95"
             >
-              <Settings className="w-4 h-4 text-amber-600" />
-              Customize School Portal
+              <School className="w-4 h-4 text-teal-700" />
+              Register / Configure School
             </Link>
+          </div>
+
+          {/* Institutional Trust Badges */}
+          <div className="mt-12 pt-8 border-t border-teal-900/10 flex flex-wrap items-center justify-center gap-6 sm:gap-12 text-xs font-mono text-slate-600">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-teal-600" />
+              <span>Multi-Tenant RLS Architecture</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-teal-600" />
+              <span>1-Minute Tamper-Proof Attendance</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-teal-600" />
+              <span>Autonomous AI Admin Agent</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-teal-600" />
+              <span>100% White-Label Branding</span>
+            </div>
           </div>
         </section>
 
         {/* =========================================================================
-            DATABASE CONNECTIVITY & TELEMETRY TESTER (LIVE SUPABASE INTEGRATION)
-            ========================================================================= */}
-        <DatabaseConnectivitySection />
-
-        {/* =========================================================================
-            FEATURED INTERACTIVE SHOWCASE MODULE (DIRECTLY EMBODYING IMAGES 1 & 2)
+            2. FEATURED INTERACTIVE SHOWCASE MODULE (INSPIRED BY REFERENCE IMAGES)
             ========================================================================= */}
         <section id="showcase" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6">
             <span className="text-[11px] font-mono uppercase tracking-widest text-teal-800 bg-teal-600/10 px-3.5 py-1.5 rounded-full border border-teal-600/20 font-bold">
-              Interactive Crystalline Glassmorphic UI
+              Live Interactive Interface Showcase
             </span>
           </div>
 
-          {/* Master Glass Container (Matching Image 1 & 2 outer frame) */}
+          {/* Master Glass Container */}
           <div className="glass-container rounded-[36px] p-5 sm:p-8 relative overflow-hidden">
             {/* Top Micro Header */}
             <div className="flex items-center justify-between pb-6 border-b border-teal-900/10 text-xs font-mono text-slate-600">
@@ -363,7 +168,7 @@ export default function HomePage() {
                   {branding.schoolLogoIcon}
                 </div>
                 <span className="text-teal-950 font-extrabold tracking-wider uppercase">
-                  {branding.schoolName} // QUANTUM_PORTAL
+                  {branding.schoolName} // LIVE_PORTAL_PREVIEW
                 </span>
               </div>
               <div className="hidden sm:flex items-center gap-4 text-[11px]">
@@ -379,10 +184,10 @@ export default function HomePage() {
             {/* Grid Layout: Left Side (Login/Welcome Split) + Right Side (Donut Arc & Profile Stats) */}
             <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               
-              {/* LEFT SIDE (7 COLS): DUAL-TONE SPLIT CARD (INSPIRED BY REFERENCE IMAGE 1 & 2) */}
+              {/* LEFT SIDE (7 COLS): DUAL-TONE SPLIT CARD */}
               <div className="lg:col-span-7 rounded-[30px] overflow-hidden border border-white/80 shadow-2xl grid grid-cols-1 sm:grid-cols-12">
                 
-                {/* Left Inner Welcome Banner (Directly from Image 1's Luminous Saturated Gradient Card) */}
+                {/* Left Inner Welcome Banner */}
                 <div className="sm:col-span-5 glass-welcome-panel p-6 sm:p-8 flex flex-col justify-between text-white relative">
                   <div>
                     <div className="w-10 h-10 rounded-2xl bg-white/25 backdrop-blur-md flex items-center justify-center mb-6 border border-white/40 text-xl shadow-inner">
@@ -402,12 +207,12 @@ export default function HomePage() {
                     </span>
                     <span className="text-xs font-bold text-white flex items-center gap-1 mt-0.5">
                       <ShieldCheck className="w-3.5 h-3.5" />
-                      PostgreSQL RLS Protected
+                      Role-Based Access Control
                     </span>
                   </div>
                 </div>
 
-                {/* Right Inner Form Panel (From Image 1 & 2's Frosted Inputs & Buttons) */}
+                {/* Right Inner Form Panel */}
                 <div className="sm:col-span-7 bg-white/80 backdrop-blur-2xl p-6 sm:p-8 space-y-5 border-t sm:border-t-0 sm:border-l border-teal-900/10">
                   <div className="flex items-center justify-between">
                     <div>
@@ -445,7 +250,7 @@ export default function HomePage() {
                       <Lock className="absolute right-3.5 top-3 w-4 h-4 text-slate-400" />
                     </div>
 
-                    {/* 6-Digit OTP Simulation (Directly from Image 2) */}
+                    {/* 6-Digit OTP Simulation */}
                     <div className="pt-1">
                       <label className="block text-[11px] font-mono text-center text-slate-600 uppercase tracking-widest mb-2 font-bold">
                         Enter 6 digit OTP / Smart Token
@@ -462,7 +267,7 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* Action Button: Styled with Blue/Violet Gradient Pill (From Reference Image 1) */}
+                    {/* Action Button */}
                     <div className="pt-2">
                       <button
                         type="submit"
@@ -493,13 +298,13 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* RIGHT SIDE (5 COLS): GAUGE DONUT + STATS + PILL DOCK (FROM IMAGE 2) */}
+              {/* RIGHT SIDE (5 COLS): GAUGE DONUT + STATS + PILL DOCK */}
               <div className="lg:col-span-5 space-y-6">
                 
                 {/* Top Row: Donut Progress Arc (Middle) + Vertical Pill Dock (Right) */}
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
                   
-                  {/* Circular Gradient Donut Progress (Directly from Image 2's 105 Donut) */}
+                  {/* Circular Gradient Donut Progress */}
                   <div className="sm:col-span-7 glass-card-crystal rounded-3xl p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
                     <span className="text-[11px] font-mono text-slate-600 uppercase tracking-wider mb-2 font-bold">
                       Attendance &amp; Target
@@ -528,7 +333,7 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* Vertical Floating Pill Menu Dock (Directly from Image 2's Pill Menu) */}
+                  {/* Vertical Floating Pill Menu Dock */}
                   <div className="sm:col-span-5 glass-pill-dock rounded-3xl p-3 flex flex-col justify-center space-y-2">
                     {(['Home', 'Services', 'About us', 'Contact us'] as const).map((menuItem) => (
                       <button
@@ -546,7 +351,7 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Bottom Card: "Your Profile Stats" (Directly from Image 2's 95 / $750 Card) */}
+                {/* Bottom Card: "Your Profile Stats" */}
                 <div className="glass-card-crystal rounded-3xl p-6 space-y-4">
                   <div className="text-center pb-2 border-b border-teal-900/10">
                     <h5 className="text-xs font-mono uppercase tracking-widest text-teal-950 font-bold">
@@ -589,91 +394,198 @@ export default function HomePage() {
         </section>
 
         {/* =========================================================================
-            CORE FUNCTIONAL PILLARS (DYNAMICALLY RESPECTING MODULE TOGGLES)
+            3. KEY FEATURES OVERVIEW (ATTENDANCE, GRADEBOOK, SOCIAL FEED & MORE)
             ========================================================================= */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
+          <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-xs font-mono text-teal-800 uppercase tracking-widest bg-teal-600/10 px-3.5 py-1.5 rounded-full border border-teal-600/20 font-bold">
-              Active Institutional Modules
+              Comprehensive Platform Capabilities
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-teal-950 mt-3">
-              Configured for {branding.schoolName}
+              Built for Teachers, Students &amp; Administrators
             </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-2">
+              Every feature is built with zero-lag interaction, biometric security, and responsive glassmorphism.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* 1-Minute Attendance */}
-            {modules.attendance && (
-              <div className="glass-card-crystal rounded-3xl p-6 flex flex-col justify-between space-y-6">
-                <div>
-                  <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600 mb-5 shadow-sm">
-                    <Zap className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-xl font-bold text-teal-950 mb-2">
-                    1-Minute Attendance System
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
-                    Defaults all students to Present. Teachers tap only the absentees in 30 seconds. Automatically syncs and alerts parents.
-                  </p>
+            {/* Feature 1: 1-Minute Attendance System */}
+            <div className="glass-card-crystal rounded-3xl p-6 sm:p-7 flex flex-col justify-between space-y-6 hover:shadow-lg transition-all border border-teal-100">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 mb-5 shadow-sm">
+                  <Zap className="w-6 h-6" />
                 </div>
-                <Link
-                  href="/portal/attendance"
-                  className="inline-flex items-center text-xs font-mono font-bold text-teal-800 hover:text-teal-950 group"
-                >
-                  Experience 1-Tap Grid →
-                </Link>
+                <h3 className="text-xl font-bold text-teal-950 mb-2">
+                  1-Minute Fast Attendance
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
+                  All students default to Present. Faculty members tap only the absentees in seconds, lock the record, and automatically beam real-time SMS notifications to parents.
+                </p>
               </div>
-            )}
+              <Link
+                href="/portal/attendance"
+                className="inline-flex items-center text-xs font-mono font-bold text-teal-800 hover:text-teal-950 group"
+              >
+                Experience Attendance Grid →
+              </Link>
+            </div>
 
-            {/* Dual AI System */}
-            {modules.aiStudy && (
-              <div className="glass-card-crystal rounded-3xl p-6 flex flex-col justify-between space-y-6">
-                <div>
-                  <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 mb-5 shadow-sm">
-                    <Bot className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-xl font-bold text-teal-950 mb-2">
-                    Dual AI Cognitive Engine
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
-                    Synthesizes exam summary notes, predicts board questions with 94%+ accuracy, and features &apos;Hey-Clicky&apos; voice navigation.
-                  </p>
+            {/* Feature 2: Internal Gradebook & GPA Simulator */}
+            <div className="glass-card-crystal rounded-3xl p-6 sm:p-7 flex flex-col justify-between space-y-6 hover:shadow-lg transition-all border border-teal-100">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700 mb-5 shadow-sm">
+                  <GraduationCap className="w-6 h-6" />
                 </div>
-                <Link
-                  href="/portal/ai-study"
-                  className="inline-flex items-center text-xs font-mono font-bold text-purple-800 hover:text-purple-950 group"
-                >
-                  Launch AI Assistant →
-                </Link>
+                <h3 className="text-xl font-bold text-teal-950 mb-2">
+                  Gradebook &amp; GPA Simulator
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
+                  Secure draft grading for teachers before release, coupled with real-time GPA trajectory simulators and downloadable official transcripts for students.
+                </p>
               </div>
-            )}
+              <Link
+                href="/portal/results"
+                className="inline-flex items-center text-xs font-mono font-bold text-teal-800 hover:text-teal-950 group"
+              >
+                View Gradebook &amp; GPA Tools →
+              </Link>
+            </div>
 
-            {/* Club Hubs */}
-            {modules.clubs && (
-              <div className="glass-card-crystal rounded-3xl p-6 flex flex-col justify-between space-y-6">
-                <div>
-                  <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mb-5 shadow-sm">
-                    <Award className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-xl font-bold text-teal-950 mb-2">
-                    Dynamic Club Hubs &amp; Badges
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
-                    Robotics, Astrophysics, Debate, Art, and Coding societies with verifiable digital badges and class branch groupings.
-                  </p>
+            {/* Feature 3: Campus Social Feed & Wall */}
+            <div className="glass-card-crystal rounded-3xl p-6 sm:p-7 flex flex-col justify-between space-y-6 hover:shadow-lg transition-all border border-teal-100">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 mb-5 shadow-sm">
+                  <MessageSquare className="w-6 h-6" />
                 </div>
-                <Link
-                  href="/portal/clubs"
-                  className="inline-flex items-center text-xs font-mono font-bold text-amber-800 hover:text-amber-950 group"
-                >
-                  Explore Clubs &amp; Badges →
-                </Link>
+                <h3 className="text-xl font-bold text-teal-950 mb-2">
+                  Campus Wall &amp; Social Feed
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
+                  Academic collaboration hub where students and teachers share lab discoveries, post study hypotheses, celebrate XP leaderboards, and discuss subject topics.
+                </p>
               </div>
-            )}
+              <Link
+                href="/portal/feed"
+                className="inline-flex items-center text-xs font-mono font-bold text-teal-800 hover:text-teal-950 group"
+              >
+                Visit Social Feed &amp; Wall →
+              </Link>
+            </div>
+
+            {/* Feature 4: Dual AI Study Assistant */}
+            <div className="glass-card-crystal rounded-3xl p-6 sm:p-7 flex flex-col justify-between space-y-6 hover:shadow-lg transition-all border border-teal-100">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700 mb-5 shadow-sm">
+                  <Bot className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-teal-950 mb-2">
+                  AI Study Assistant &amp; Predictor
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
+                  Neural model trained on textbook curricula to generate exam-ready revision notes, predict board question probabilities, and answer doubts in real-time.
+                </p>
+              </div>
+              <Link
+                href="/portal/ai-study"
+                className="inline-flex items-center text-xs font-mono font-bold text-purple-800 hover:text-purple-950 group"
+              >
+                Launch AI Assistant →
+              </Link>
+            </div>
+
+            {/* Feature 5: Dynamic Clubs & Societies */}
+            <div className="glass-card-crystal rounded-3xl p-6 sm:p-7 flex flex-col justify-between space-y-6 hover:shadow-lg transition-all border border-teal-100">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 mb-5 shadow-sm">
+                  <Award className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-teal-950 mb-2">
+                  Dynamic Club Pavilions
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
+                  Robotics, Astrophysics, Debate, Art, and Coding societies with verifiable digital badges, meeting timetables, and class branch groupings.
+                </p>
+              </div>
+              <Link
+                href="/portal/clubs"
+                className="inline-flex items-center text-xs font-mono font-bold text-amber-800 hover:text-amber-950 group"
+              >
+                Explore Clubs &amp; Badges →
+              </Link>
+            </div>
+
+            {/* Feature 6: School Admin Customization Hub */}
+            <div className="glass-card-crystal rounded-3xl p-6 sm:p-7 flex flex-col justify-between space-y-6 hover:shadow-lg transition-all border border-teal-100">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 mb-5 shadow-sm">
+                  <Settings className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-teal-950 mb-2">
+                  Admin Customization Hub
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
+                  9-tab administrative control engine with logo upload, dynamic class &amp; section builder, shifts scheduler, feature toggles, and natural language AI admin.
+                </p>
+              </div>
+              <Link
+                href="/portal/settings"
+                className="inline-flex items-center text-xs font-mono font-bold text-teal-800 hover:text-teal-950 group"
+              >
+                Open Admin Hub →
+              </Link>
+            </div>
           </div>
         </section>
 
-        {/* PUBLIC NOTICE BOARD HUD */}
+        {/* =========================================================================
+            4. MULTI-TENANT ONBOARDING CALLOUT: REGISTER YOUR SCHOOL
+            ========================================================================= */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="glass-container rounded-[36px] p-8 sm:p-12 relative overflow-hidden bg-gradient-to-br from-teal-900/90 via-teal-800 to-cyan-900 text-white shadow-2xl">
+            {/* Background glowing rings */}
+            <div className="absolute -right-20 -bottom-20 w-96 h-96 rounded-full bg-teal-400/20 blur-[100px] pointer-events-none" />
+            <div className="absolute -left-20 -top-20 w-96 h-96 rounded-full bg-cyan-400/15 blur-[100px] pointer-events-none" />
+
+            <div className="relative z-10 max-w-3xl space-y-6">
+              <span className="px-3.5 py-1 text-[11px] font-mono uppercase tracking-widest bg-white/10 rounded-full border border-white/20 font-bold inline-flex items-center gap-2">
+                <Building2 className="w-3.5 h-3.5 text-teal-300" />
+                Multi-Tenant Institution Onboarding
+              </span>
+
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+                Launch Your Institution’s Portal in Minutes
+              </h2>
+
+              <p className="text-sm sm:text-base text-teal-100/90 leading-relaxed max-w-2xl">
+                Whether you manage a primary school, high school, or multi-campus academy, CampusHub provides complete administrative autonomy. Configure your school name, logo, shifts, and feature toggles with zero code.
+              </p>
+
+              <div className="pt-4 flex flex-wrap items-center gap-4">
+                <Link
+                  href="/portal/settings"
+                  className="px-8 py-4 bg-white hover:bg-slate-100 text-teal-950 font-black rounded-full shadow-lg text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 transition hover:scale-[1.02] active:scale-95"
+                >
+                  <School className="w-4 h-4 text-teal-700" />
+                  Configure School Portal
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+
+                <Link
+                  href="/login"
+                  className="px-7 py-4 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-mono font-bold rounded-full text-xs sm:text-sm transition flex items-center gap-2"
+                >
+                  <Lock className="w-4 h-4 text-teal-300" />
+                  Staff / Admin Login
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* =========================================================================
+            5. PUBLIC NOTICE BOARD HUD (DYNAMIC FROM SCHOOL CONTEXT)
+            ========================================================================= */}
         <section id="notices" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 gap-4">
             <div>
@@ -745,8 +657,10 @@ export default function HomePage() {
         </section>
       </main>
 
+      {/* Global Footer */}
       <Footer />
 
+      {/* Public Admissions Modal */}
       <AdmissionModal
         isOpen={admissionOpen}
         onClose={() => setAdmissionOpen(false)}
